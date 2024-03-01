@@ -2,6 +2,8 @@
 
 // These use the global symbol registry so that multiple copies of this
 // library can work together in case they are not deduped.
+// Symbol.for(key) 方法会根据给定的键 key，来从运行时的 symbol 注册表中找到对应的 symbol，
+// 如果找到了，则返回它，否则，新建一个与该键关联的 symbol，并放入全局 symbol 注册表中
 const GENSYNC_START = Symbol.for("gensync:v1:start");
 const GENSYNC_SUSPEND = Symbol.for("gensync:v1:suspend");
 
@@ -80,6 +82,9 @@ module.exports = Object.assign(
 );
 
 /**
+ * 给定一个生成器函数，返回执行的标准 API 对象
+ * 生成器并调用回调。
+ *
  * Given a generator function, return the standard API object that executes
  * the generator and calls the callbacks.
  */
@@ -116,6 +121,9 @@ function makeFunctionAPI(genFn) {
   return fns;
 }
 
+/**
+ * 检查 value 的类型是否符合预期
+ */
 function assertTypeof(type, name, value, allowUndefined) {
   if (
     typeof value === type ||
@@ -133,6 +141,10 @@ function assertTypeof(type, name, value, allowUndefined) {
 
   throw makeError(msg, GENSYNC_OPTIONS_ERROR);
 }
+
+/**
+ * 创建具有自定义消息和错误代码的错误对象
+ */
 function makeError(msg, code) {
   return Object.assign(new Error(msg), { code });
 }
@@ -196,12 +208,19 @@ function newGenerator({ name, arity, sync, async, errback }) {
   });
 }
 
+/**
+ * 创建一个新的函数，该函数在调用时会调用原始的生成器函数，并保留原始函数的元数据。
+ * 这样，我们就可以在不改变函数名和参数数量的情况下，改变函数的行为
+ */
 function wrapGenerator(genFn) {
   return setFunctionMetadata(genFn.name, genFn.length, function(...args) {
     return genFn.apply(this, args);
   });
 }
 
+/**
+ *
+ */
 function buildOperation({ name, arity, sync, async }) {
   return setFunctionMetadata(name, arity, function*(...args) {
     const resume = yield GENSYNC_START;
@@ -246,6 +265,9 @@ function buildOperation({ name, arity, sync, async }) {
   });
 }
 
+/**
+ * 逐步执行生成器，对生成器的每一个值进行断言，直到生成器完成
+ */
 function evaluateSync(gen) {
   let value;
   while (!({ value } = gen.next()).done) {
@@ -254,6 +276,10 @@ function evaluateSync(gen) {
   return value;
 }
 
+/**
+ * 异步地评估一个生成器。它逐步执行生成器，对生成器的每一个值进行断言，
+ * 处理生成器的异步行为，并在生成器成功完成或失败时调用相应的回调函数。
+ */
 function evaluateAsync(gen, resolve, reject) {
   (function step() {
     try {
@@ -291,6 +317,9 @@ function evaluateAsync(gen, resolve, reject) {
   })();
 }
 
+/**
+ * 断言生成器是否处于开始状态
+ */
 function assertStart(value, gen) {
   if (value === GENSYNC_START) return;
 
@@ -304,6 +333,10 @@ function assertStart(value, gen) {
     )
   );
 }
+
+/**
+ * 断言生成器是否处于暂停状态
+ */
 function assertSuspend({ value, done }, gen) {
   if (!done && value === GENSYNC_SUSPEND) return;
 
@@ -320,6 +353,10 @@ function assertSuspend({ value, done }, gen) {
   );
 }
 
+/**
+ * 用于在一个生成器对象中抛出一个错误。它首先尝试使用生成器的 throw 方法来抛出错误，
+ * 如果这个方法没有把错误抛回到生成器，函数就会显式地抛出这个错误
+ */
 function throwError(gen, err) {
   // Call `.throw` so that users can step in a debugger to easily see which
   // 'yield' passed an unexpected value. If the `.throw` call didn't throw
@@ -337,6 +374,9 @@ function isIterable(value) {
   );
 }
 
+/**
+ * 设置函数的 name 和 length 属性
+ */
 function setFunctionMetadata(name, arity, fn) {
   if (typeof name === "string") {
     // This should always work on the supported Node versions, but for the
